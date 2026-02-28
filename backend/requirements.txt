@@ -61,7 +61,9 @@ prompt-toolkit==3.0.52
 psycopg2-binary==2.9.11
     # via -r requirements.in
 pydantic==2.12.5
-    # via fastapi
+    # via
+    #   -r requirements.in
+    #   fastapi
 pydantic-core==2.41.5
     # via pydantic
 pyproject-hooks==1.2.0

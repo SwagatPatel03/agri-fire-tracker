@@ -6,3 +6,4 @@ geoalchemy2 # To make SQLAlchemy understand out PostGIS database
 psycopg2-binary # It is the adapter that allows Python to interact directly with PostgreSQL database
 celery # To manage background tasks
 redis # So Celery can communicate with the redis broker we setup in Docker
+pydantic # To validate our data
