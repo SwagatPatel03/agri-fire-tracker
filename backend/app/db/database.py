@@ -16,3 +16,13 @@ what a "Fire" or a "District" looks like in our database, our Python classes
  will inherit from this Base so SQLAlchemy knows
  they are mapped to database tables. """
 Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        """ The yield keyword makes this function a generator. 
+        It pauses execution here, gives the database connection to the
+        route handler, and only closes the connection when the handler is done."""
+        yield db
+    finally:
+        db.close()
