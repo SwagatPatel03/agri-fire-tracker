@@ -1,7 +1,9 @@
 from shapely import distance
 import math
 from shapely.geometry import Point, Polygon
+from celery import shared_task
 
+@shared_task
 def calculate_plume(lat, lon, wind_speed_kmh, wind_deg):
 
     # Calculates the distance over 12 hours
@@ -15,4 +17,3 @@ def calculate_plume(lat, lon, wind_speed_kmh, wind_deg):
     new_lon = lon + distance * math.sin(angle)
 
     return Polygon([(lon, lat), (new_lon, lat), (new_lon, new_lat)])
-    
