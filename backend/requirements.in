@@ -1,0 +1,8 @@
+pip-tools # required for dependency management and generation of requirements.txt
+fastapi # web framework required for building API
+uvicorn # ASGI (Asynchronous Server Gateway Interface) server implementation for running FastAPI applications 
+sqlalchemy # To write our database queries in python instead of raw SQL
+geoalchemy2 # To make SQLAlchemy understand out PostGIS database
+psycopg2-binary # It is the adapter that allows Python to interact directly with PostgreSQL database
+celery # To manage background tasks
+redis # So Celery can communicate with the redis broker we setup in Docker
