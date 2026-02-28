@@ -14,6 +14,9 @@ class Fire(Base):
     store coordinates; we have to tell the database which "coordinate system" 
     we are using. 4326 is the industry standard for GPS (Latitude/Longitude)."""
 
+    # The trajectory is the path the smoke is expected to take pre calculated 12 hours ago.
+    trajectory = Column(Geometry(geometry_type="POLYGON", srid=4326))
+
     magnitude = Column(Float) # FRP - Fire Radiative Power
     wind_speed = Column(Float)
     wind_direction = Column(Float) # Degrees (0-360)
