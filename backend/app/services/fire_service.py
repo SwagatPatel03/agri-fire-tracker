@@ -3,6 +3,7 @@ import math
 from shapely.geometry import Point, Polygon
 from celery import shared_task
 
+# @shared_task is a decorator that tells Celery to run this function in the background
 @shared_task
 def calculate_plume(lat, lon, wind_speed_kmh, wind_deg):
 
