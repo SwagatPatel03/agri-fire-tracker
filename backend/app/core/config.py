@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str="5432"
     POSTGRES_HOST: str="localhost"
 
+    # External API Settings
+    NASA_FIRMS_API_KEY : str
+    OPEN_WEATHER_MAP_API_KEY : str
+
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
