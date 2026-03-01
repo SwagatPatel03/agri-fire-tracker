@@ -12,11 +12,14 @@ class Settings(BaseSettings):
     NASA_FIRMS_API_KEY : str
     OPEN_WEATHER_MAP_API_KEY : str
 
+    # Message Broker
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
-class Config:
-    env_file = ".env"
+    class Config:
+        env_file = ".env"
 
 settings = Settings()
