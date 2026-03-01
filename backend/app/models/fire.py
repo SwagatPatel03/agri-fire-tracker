@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float # To define the columns of our table
+from sqlalchemy import Column, Integer, String, Float, DateTime # To define the columns of our table
 from geoalchemy2 import Geometry # To define the geometry column
 from app.db.database import Base
 from datetime import datetime
@@ -21,5 +21,5 @@ class Fire(Base):
     wind_speed = Column(Float)
     wind_direction = Column(Float) # Degrees (0-360)
 
-    detected_at = Column(DateTime, default=datetime.datetime.utcnow)
+    detected_at = Column(DateTime, default=datetime.utcnow)
     district_name = Column(String, index=True) # To filter by adminstrative names    
