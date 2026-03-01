@@ -1,4 +1,3 @@
-import backend
 # Celery is a distributed task queue that allows you to run tasks in the background
 from celery import Celery
 # crontab is used to schedule tasks at specific times
