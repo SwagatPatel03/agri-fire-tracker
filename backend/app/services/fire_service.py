@@ -75,7 +75,7 @@ def fetch_and_process_nasa_fires():
 
             # ENRICH: Get weather Data with Caching
             # We round coordinates to 1 decimal place (~11 km resolution) for the cache key
-            cache_key = f"{round(lat, 1)}. {round(lon, 1)}"
+            cache_key = f"{round(lat, 1)},{round(lon, 1)}"
 
             if cache_key in weather_cache:
                 wind_speed, wind_deg = weather_cache[cache_key]
