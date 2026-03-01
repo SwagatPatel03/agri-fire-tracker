@@ -7,11 +7,12 @@ from sqlalchemy import func
 from app.db.database import get_db
 from app.models.fire import Fire
 from app.models.district import District
+from app.schemas.risk import DistrictRiskScore
 
 # Create a router for the API
 router = APIRouter()
 
-@router.get("/districts/risk-scores")
+@router.get("/districts/risk-scores", response_model=list[DistrictRiskScore])
 # db - Name of the parameter
 # :Session - db is an instance of SQLAchemy session
 # Depends - FastAPI dependency injection
@@ -37,4 +38,3 @@ def get_district_risk_scores(db: Session = Depends(get_db)):
 
 
 
-    
