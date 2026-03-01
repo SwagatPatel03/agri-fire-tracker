@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float # To define the columns of our table
 from geoalchemy2 import Geometry # To define the geometry column
 from app.db.database import Base
-import datetime
+from datetime import datetime
 
 class Fire(Base):
     __tablename__ = "active_fires"
