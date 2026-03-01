@@ -117,6 +117,7 @@ def fetch_and_process_nasa_fires():
 
     except Exception as e:
         print(f"Error processing fires: {e}")
+        db.rollback()
     finally:
         # Closing to prevent memory leaks
         db.close()
