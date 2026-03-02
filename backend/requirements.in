@@ -9,3 +9,4 @@ redis # So Celery can communicate with the redis broker we setup in Docker
 pydantic-settings # To manage our application settings and load them from environment variables
 shapely # To perform geometric operations
 httpx # To make HTTP requests
+requests # To make HTTP requests
