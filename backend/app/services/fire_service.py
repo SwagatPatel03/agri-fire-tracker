@@ -1,123 +1,203 @@
-import requests
-import math
-from datetime import datetime
-from shapely.geometry import Point, Polygon
-from celery import shared_task
+"""
+Fire ingestion service — fetches NASA FIRMS data, enriches with weather,
+calculates Gaussian smoke plumes, resolves districts, and saves to PostGIS.
+"""
+
 import csv
+from datetime import datetime
 from io import StringIO
 
-# Import our database session, models, and settings
+import httpx
+from shapely.geometry import Point
+from sqlalchemy import func
+
+from app.core.celery_app import celery_app
+from app.core.config import settings
+from app.core.logging import get_logger
 from app.db.database import SessionLocal
 from app.models.fire import Fire
-from app.core.config import settings
+from app.models.district import District
+from app.models.alert import Alert, AlertLevel
+from app.services.weather_service import get_wind_data
+from app.services.plume_service import calculate_gaussian_plume
 
-def calculate_plume(lat, lon, wind_speed_kmh, wind_deg):
-    # Calculates the distance over 12 hours
-    distance = wind_speed_kmh * 12
+logger = get_logger(__name__)
 
-    # Convert degrees to radians for Python's math functions
-    angle = math.radians(wind_deg)
+# NASA FIRMS bounding box for India (west, south, east, north)
+INDIA_BBOX = "68,6,98,38"
+NASA_SENSOR = "VIIRS_SNPP_NRT"
+NASA_DAY_RANGE = 2  # Fetch last 2 days of data
 
-    # Calculate new coordinates
-    new_lat = lat + distance * math.cos(angle)
-    new_lon = lon + distance * math.sin(angle)
+# Alert thresholds (fires per district to trigger alert level)
+ALERT_THRESHOLDS = {
+    AlertLevel.LOW: 3,
+    AlertLevel.MEDIUM: 10,
+    AlertLevel.HIGH: 25,
+    AlertLevel.CRITICAL: 50,
+}
 
-    return Polygon([(lon, lat), (new_lon, lat), (new_lon, new_lat)])
 
-@shared_task
-def fetch_and_process_nasa_fires():
+def _resolve_district(db, lat: float, lon: float) -> str:
+    """Find which district contains this coordinate using PostGIS ST_Contains."""
+    point_wkt = f"SRID=4326;POINT({lon} {lat})"
+    result = db.query(District.name).filter(
+        func.ST_Contains(District.boundary, func.ST_GeomFromEWKT(point_wkt))
+    ).first()
+    return result[0] if result else "Unknown"
+
+
+def _check_and_create_alerts(db, fire_counts: dict[str, int]) -> None:
+    """Create alerts for districts exceeding fire count thresholds."""
+    for district_name, count in fire_counts.items():
+        if district_name == "Unknown":
+            continue
+
+        # Find the highest applicable alert level
+        alert_level = None
+        for level, threshold in sorted(
+            ALERT_THRESHOLDS.items(), key=lambda x: x[1], reverse=True
+        ):
+            if count >= threshold:
+                alert_level = level
+                break
+
+        if alert_level is None:
+            continue
+
+        # Check if we already have an unacknowledged alert at this level for this district
+        existing = db.query(Alert).filter(
+            Alert.district_name == district_name,
+            Alert.alert_level == alert_level,
+            Alert.acknowledged_at.is_(None),
+        ).first()
+
+        if not existing:
+            alert = Alert(
+                district_name=district_name,
+                alert_level=alert_level,
+                fire_count=count,
+                message=f"{count} active fires detected in {district_name}",
+            )
+            db.add(alert)
+            logger.warning(f"ALERT created: {alert_level.value} for {district_name} ({count} fires)")
+
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+    acks_late=True,
+)
+def fetch_and_process_nasa_fires(self):
     """
-    Background job to fetch NASA fires, get weather data,
-    calculate smoke plumes, and save to PostGIS.
+    Background job: Fetch NASA fire data → enrich with weather →
+    compute smoke plumes → resolve districts → save to PostGIS.
     """
     db = SessionLocal()
+    weather_cache: dict[str, tuple[float, float]] = {}
+    fire_counts: dict[str, int] = {}  # District → fire count for alerting
+    stats = {"fetched": 0, "new": 0, "skipped": 0, "errors": 0}
 
     try:
-        # 1. FETCH: We fetch the data from NASA's Firms API
-        nasa_url = f"https://firms.eosdis.nasa.gov/api/country/csv/{settings.NASA_FIRMS_API_KEY}/IND/1"
-        response = requests.get(nasa_url)
+        # ── 1. FETCH from NASA FIRMS ──────────────────────────
+        nasa_url = (
+            f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
+            f"{settings.NASA_FIRMS_API_KEY}/{NASA_SENSOR}/{INDIA_BBOX}/{NASA_DAY_RANGE}"
+        )
+        logger.info(f"Fetching fire data from NASA FIRMS ({NASA_SENSOR}, {NASA_DAY_RANGE} days)")
 
-        # If NASA's servers are down or API key is down, stop the task safely
-        if response.status_code != 200:
-            print(f"NASA API Error: {response.status_code} - {response.text}")
-            return
+        with httpx.Client(timeout=30.0) as client:
+            nasa_response = client.get(nasa_url)
 
-        # NASA returns raw CSV text. We have to convert it into a readble stream for Python
-        csv_stream = StringIO(response.text)
-        csv_reader = csv.DictReader(csv_stream) # Reads the CSV and treats each row as a dictionary
+        if nasa_response.status_code != 200:
+            logger.error(f"NASA API error: {nasa_response.status_code} — {nasa_response.text[:200]}")
+            raise self.retry(exc=Exception(f"NASA API returned {nasa_response.status_code}"))
 
-        # A simple in-memory dictionary to cache weather requests
-        # Key: "lat,lon" Value: {"speed": 10, "deg": 270}
-        weather_cache = {}
+        # ── 2. PARSE CSV ──────────────────────────────────────
+        csv_stream = StringIO(nasa_response.text)
+        csv_reader = csv.DictReader(csv_stream)
 
         for row in csv_reader:
-            lat = float(row["latitude"]) # convert string to float
-            lon = float(row["longitude"])
-            frp = float(row["frp"])
-            
-            # NASA FIRMS CSVs split data and time into 'acq_date' (YYYY-MM-DD) and 'acq_time' (HHMM)
-            # We need to stich them back together into proper datetime object
-            acq_date = row["acq_date"] # e.g. "2026-03-01"
-            acq_time = row["acq_time"].zfill(4) # Ensures time is always 4 didgits (e.g. 123 -> 0123)
+            stats["fetched"] += 1
 
-            # Convert the stitched string into a Python datetime object
-            fire_time = datetime.strptime(f"{acq_date} {acq_time}", "%Y-%m-%d %H%M")
+            try:
+                lat = float(row["latitude"])
+                lon = float(row["longitude"])
+                frp = float(row["frp"])
+                confidence = row.get("confidence", "nominal")
 
-            # IDEMPOTENCY CHECK: Does this fire already exist?
-            # We check if a fire exists at this exact time and location
-            existing_fire = db.query(Fire).filter(
-                Fire.detected_at == fire_time,
-                Fire.magnitude == frp
-            ).first()
+                # Parse acquisition datetime
+                acq_date = row["acq_date"]
+                acq_time = row["acq_time"].zfill(4)
+                fire_time = datetime.strptime(f"{acq_date} {acq_time}", "%Y-%m-%d %H%M")
 
-            if existing_fire:
-                continue # Skip to the next fire if we already saved this one
+                # ── 3. IDEMPOTENCY CHECK (lat + lon + time) ───
+                existing = db.query(Fire.id).filter(
+                    Fire.latitude == lat,
+                    Fire.longitude == lon,
+                    Fire.detected_at == fire_time,
+                ).first()
 
-            # ENRICH: Get weather Data with Caching
-            # We round coordinates to 1 decimal place (~11 km resolution) for the cache key
-            cache_key = f"{round(lat, 1)},{round(lon, 1)}"
+                if existing:
+                    stats["skipped"] += 1
+                    continue
 
-            if cache_key in weather_cache:
-                wind_speed, wind_deg = weather_cache[cache_key]
-            else:
-                # Actually call the OpenWeather API if not in cache
-                weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={settings.OPEN_WEATHER_MAP_API_KEY}&units=metric"
-                response = requests.get(weather_url)
+                # ── 4. WEATHER ENRICHMENT (Open-Meteo) ────────
+                wind_speed, wind_deg = get_wind_data(lat, lon, cache=weather_cache)
 
-                if response.status_code == 200:
-                    weather_json = response.json()
-                    wind_speed = weather_json['wind'].get('speed', 0) * 3.6 # Convert m/s to km/h
-                    wind_deg = weather_json['wind'].get('deg', 0)
-                    # Save cache for the next fire in this loop
-                    weather_cache[cache_key] = (wind_speed, wind_deg)
-                else:
-                    wind_speed, wind_deg = 0, 0 # Fallback to 0 if API fails
+                # ── 5. GAUSSIAN PLUME CALCULATION ─────────────
+                plume_polygon = calculate_gaussian_plume(
+                    lat, lon, wind_speed, wind_deg,
+                    duration_hours=6.0,
+                    stability_class="D",
+                )
+                fire_point = Point(lon, lat)
 
-            # CALCULATE: Generate the Shapely Plume Polygon
-            plume_polygon = calculate_plume(lat, lon, wind_speed, wind_deg)
-            fire_point = Point(lon, lat)
+                # ── 6. DISTRICT RESOLUTION ────────────────────
+                district_name = _resolve_district(db, lat, lon)
 
-            # SAVE: Convert to WKT (Well-Known Text) and save to databases
-            new_fire = Fire(
-                location = f"SRID=4326;{fire_point.wkt}",
-                trajectory = f"SRID=4326;{plume_polygon.wkt}",
-                magnitude = frp,
-                wind_speed = wind_speed,
-                wind_direction = wind_deg,
-                detected_at = fire_time,
-                # In a full app, we would do a spatial query here to find the district name automatically
-                # For now, we use "Unknown" as a fallback
-                district_name = "Unknown"
-            )
+                # Track fire counts per district for alerting
+                fire_counts[district_name] = fire_counts.get(district_name, 0) + 1
 
-            db.add(new_fire)
+                # ── 7. SAVE TO DATABASE ───────────────────────
+                new_fire = Fire(
+                    latitude=lat,
+                    longitude=lon,
+                    location=f"SRID=4326;{fire_point.wkt}",
+                    trajectory=f"SRID=4326;{plume_polygon.wkt}",
+                    magnitude=frp,
+                    confidence=confidence,
+                    satellite=NASA_SENSOR,
+                    wind_speed=wind_speed,
+                    wind_direction=wind_deg,
+                    detected_at=fire_time,
+                    district_name=district_name,
+                )
+                db.add(new_fire)
+                stats["new"] += 1
 
-        # Commit all the new fires to the database at once
+            except (KeyError, ValueError) as e:
+                stats["errors"] += 1
+                logger.warning(f"Skipping malformed fire row: {e}")
+                continue
+
+        # Commit all new fires at once
         db.commit()
 
+        # ── 8. GENERATE ALERTS ────────────────────────────────
+        _check_and_create_alerts(db, fire_counts)
+        db.commit()
+
+        logger.info(
+            f"Fire ingestion complete: "
+            f"fetched={stats['fetched']}, new={stats['new']}, "
+            f"skipped={stats['skipped']}, errors={stats['errors']}"
+        )
+
     except Exception as e:
-        print(f"Error processing fires: {e}")
+        logger.error(f"Fire processing failed: {e}")
         db.rollback()
+        raise self.retry(exc=e)
+
     finally:
-        # Closing to prevent memory leaks
         db.close()

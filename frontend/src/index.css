@@ -1,0 +1,490 @@
+/* ── CSS Design System for Agri-Fire Tracker ─────────────── */
+
+:root {
+  /* Color palette */
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-glass: rgba(17, 24, 39, 0.85);
+  --bg-glass-hover: rgba(17, 24, 39, 0.95);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-hover: rgba(255, 255, 255, 0.15);
+
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  --accent-fire: #f97316;
+  --accent-fire-glow: rgba(249, 115, 22, 0.3);
+  --accent-danger: #ef4444;
+  --accent-danger-glow: rgba(239, 68, 68, 0.3);
+  --accent-warning: #eab308;
+  --accent-success: #22c55e;
+  --accent-info: #3b82f6;
+
+  /* Risk level colors */
+  --risk-none: #374151;
+  --risk-low: #22c55e;
+  --risk-medium: #eab308;
+  --risk-high: #f97316;
+  --risk-critical: #ef4444;
+
+  /* Spacing */
+  --sidebar-width: 380px;
+
+  /* Shadows */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow-fire: 0 0 20px rgba(249, 115, 22, 0.15);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Layout ──────────────────────────────────────────────── */
+
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+
+.map-container {
+  flex: 1;
+  height: 100vh;
+  position: relative;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--border-glass);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  overflow: hidden;
+  box-shadow: var(--shadow-glass);
+}
+
+.sidebar-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.sidebar-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--accent-fire), #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sidebar-header p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--border-glass);
+  border-radius: 4px;
+}
+
+/* ── Stats Grid ──────────────────────────────────────────── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 16px;
+  transition: var(--transition-fast);
+}
+
+.stat-card:hover {
+  border-color: var(--border-glass-hover);
+  transform: translateY(-1px);
+}
+
+.stat-card .stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.stat-card .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-card.fire .stat-value {
+  color: var(--accent-fire);
+}
+
+.stat-card.alert .stat-value {
+  color: var(--accent-danger);
+}
+
+.stat-card.district .stat-value {
+  color: var(--accent-info);
+}
+
+.stat-card.plume .stat-value {
+  color: var(--accent-warning);
+}
+
+/* ── Section ─────────────────────────────────────────────── */
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* ── Risk Score List ─────────────────────────────────────── */
+
+.risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.risk-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  transition: var(--transition-fast);
+  cursor: default;
+}
+
+.risk-item:hover {
+  border-color: var(--border-glass-hover);
+}
+
+.risk-item .district-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.risk-item .district-state {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.risk-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.risk-badge.NONE     { background: rgba(55,65,81,0.5); color: #9ca3af; }
+.risk-badge.LOW      { background: rgba(34,197,94,0.15); color: #4ade80; }
+.risk-badge.MEDIUM   { background: rgba(234,179,8,0.15); color: #facc15; }
+.risk-badge.HIGH     { background: rgba(249,115,22,0.15); color: #fb923c; }
+.risk-badge.CRITICAL { background: rgba(239,68,68,0.15); color: #f87171; }
+
+.fire-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 30px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filter Controls ─────────────────────────────────────── */
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.filter-btn:hover {
+  border-color: var(--border-glass-hover);
+  color: var(--text-primary);
+}
+
+.filter-btn.active {
+  border-color: var(--accent-fire);
+  color: var(--accent-fire);
+  background: rgba(249, 115, 22, 0.08);
+}
+
+/* ── Alert Banner ────────────────────────────────────────── */
+
+.alert-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(239, 68, 68, 0.12);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideDown 0.4s ease;
+  box-shadow: 0 4px 24px rgba(239, 68, 68, 0.15);
+}
+
+.alert-banner .alert-icon {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-danger);
+  border-radius: 50%;
+  animation: alertPulse 2s ease infinite;
+}
+
+.alert-banner .alert-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #fca5a5;
+}
+
+/* ── Loading State ───────────────────────────────────────── */
+
+.loading-skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-secondary) 25%,
+    rgba(55, 65, 81, 0.5) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ── Map Controls Overlay ────────────────────────────────── */
+
+.map-legend {
+  position: absolute;
+  bottom: 24px;
+  right: 16px;
+  z-index: 10;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-glass);
+}
+
+.map-legend h4 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-swatch {
+  width: 20px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+
+@keyframes slideDown {
+  from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes alertPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 40vh;
+    border-right: none;
+    border-top: 1px solid var(--border-glass);
+    border-radius: 16px 16px 0 0;
+  }
+
+  .map-container {
+    height: 60vh;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .stat-card {
+    padding: 10px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.1rem;
+  }
+}
+
+/* ── MapLibre overrides ──────────────────────────────────── */
+.maplibregl-ctrl-attrib {
+  font-size: 10px !important;
+  background: rgba(0,0,0,0.6) !important;
+  color: #9ca3af !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: #9ca3af !important;
+}
+
+.maplibregl-popup-content {
+  background: var(--bg-glass) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid var(--border-glass) !important;
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+  padding: 12px 16px !important;
+  box-shadow: var(--shadow-glass) !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: var(--bg-glass) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: var(--text-muted) !important;
+  font-size: 18px !important;
+}
+
+.fire-popup-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--accent-fire);
+}
+
+.fire-popup-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+}
+
+.fire-popup-row span:last-child {
+  font-weight: 500;
+  color: var(--text-primary);
+}

@@ -5,9 +5,27 @@
 __pycache__/
 *.py[cod]
 venv/
+*.egg-info/
 
 # VSCode
 .vscode/
 
 # Docker
 docker-compose.override.yml
+
+# Celery runtime state
+celerybeat-schedule*
+
+# Alembic
+alembic/versions/*.pyc
+
+# Data files (downloaded GeoJSON, etc.)
+backend/data/
+
+# Logs
+*.log
+
+# Node
+node_modules/
+dist/
+.vercel/

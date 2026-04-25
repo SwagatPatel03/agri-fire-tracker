@@ -1,29 +1,33 @@
-# Celery is a distributed task queue that allows you to run tasks in the background
 from celery import Celery
-# crontab is used to schedule tasks at specific times
 from celery.schedules import crontab
+
 from app.core.config import settings
 
-# 1. Initialize the Celery App
-# We name it "agri-fire-worker" and point both the broker and result backend to Redis
 celery_app = Celery(
     "agri_fire_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    # Tell Celery which files to look inside for @shared_task decorators
-    include=["app.services.fire_service"]
+    include=[
+        "app.services.fire_service",
+        "app.tasks.cleanup",
+    ],
 )
 
-# 2. Configure Celery Beat (The Scheduler)
-# This tells Celery: "Run the function fetch_and_process_nasa_fires every hour"
 celery_app.conf.beat_schedule = {
-    'fetch-nasa-fires-hourly': {
-        # The exact path to the func we want to run
-        'task': 'app.services.fire_service.fetch_and_process_nasa_fires',
-        # crontab(minute=0) means "run at the 0th minute of every hour" e.g., 1:00, 2:00, 3:00)
-        'schedule': crontab(minute=0),
+    # Fetch new fire data from NASA every hour
+    "fetch-nasa-fires-hourly": {
+        "task": "app.services.fire_service.fetch_and_process_nasa_fires",
+        "schedule": crontab(minute=0),
+    },
+    # Mark old fires as inactive every day at midnight
+    "cleanup-old-fires-daily": {
+        "task": "app.tasks.cleanup.deactivate_old_fires",
+        "schedule": crontab(hour=0, minute=30),
     },
 }
 
-# Ensure timestamps match a standard UTC time
-celery_app.conf.timezone = 'UTC'
+celery_app.conf.timezone = "UTC"
+
+# Prevent tasks from running forever
+celery_app.conf.task_time_limit = 600       # Hard kill after 10 minutes
+celery_app.conf.task_soft_time_limit = 300   # Soft warning after 5 minutes
